@@ -1,0 +1,26 @@
+[package]
+name = "cfw"
+version = "0.1.0"
+authors = ["Alex Peters <alexander.n.peters@gmail.com>"]
+edition = "2018"
+
+[workspace]
+members = ['./lib/firmware']
+
+[dependencies]
+cortex-m = "0.6.2"
+cortex-m-rt = "0.6.13"
+embedded-hal = "0.2.3"
+log = "0.4.11"
+teensy4-panic = "0.1.0"
+
+firmware = { path = "./lib/firmware"}
+
+[dependencies.teensy4-bsp]
+version = "0.2"
+features = ["rt"]
+
+# Don't optimize build dependencies, like proc macros.
+# Helps with build times.
+[profile.release.build-override]
+opt-level = 0

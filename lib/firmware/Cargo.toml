@@ -1,0 +1,7 @@
+[package]
+name = "firmware"
+version = "0.1.0"
+authors = ["Alex Peters <alexander.n.peters@gmail.com>"]
+edition = "2018"
+
+[dependencies]
