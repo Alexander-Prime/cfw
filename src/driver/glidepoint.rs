@@ -1,9 +1,15 @@
+use core::cell::RefCell;
+
 use embedded_hal::blocking::spi::Transfer;
 use embedded_hal::digital::v2::InputPin;
+use firmware::primitive::NormAxis;
 
-pub struct GlidePoint<S, DR> {
+pub struct Tm035035<S, DR> {
     spi: S,
     data_ready: DR,
+    x: RefCell<f32>,
+    y: RefCell<f32>,
+    z: RefCell<f32>,
 }
 
 pub enum GlidePointError<S, DR>
@@ -15,16 +21,19 @@ where
     DataReadyError(DR::Error),
 }
 
-impl GlidePoint<!, !> {
-    pub fn try_new<S, DR>(
-        spi: S,
-        data_ready: DR,
-    ) -> Result<GlidePoint<S, DR>, GlidePointError<S, DR>>
+impl Tm035035<!, !> {
+    pub fn try_new<S, DR>(spi: S, data_ready: DR) -> Result<Tm035035<S, DR>, GlidePointError<S, DR>>
     where
         S: Transfer<u8>,
         DR: InputPin,
     {
-        let mut glide_point = GlidePoint { spi, data_ready };
+        let mut glide_point = Tm035035 {
+            spi,
+            data_ready,
+            x: RefCell::new(0.0),
+            y: RefCell::new(0.0),
+            z: RefCell::new(0.0),
+        };
 
         glide_point.reset()?;
 
@@ -36,7 +45,7 @@ impl GlidePoint<!, !> {
     }
 }
 
-impl<S, DR> GlidePoint<S, DR>
+impl<S, DR> Tm035035<S, DR>
 where
     S: Transfer<u8>,
     DR: InputPin,
@@ -115,25 +124,19 @@ where
         })
     }
 
-    pub fn primitives(
-        &self,
-    ) -> (
-        Result<AxisIter<S, DR>, ()>,
-        Result<AxisIter<S, DR>, ()>,
-        Result<AxisIter<S, DR>, ()>,
-    ) {
-        (
-            Ok(AxisIter(&self, Axis::X)),
-            Ok(AxisIter(&self, Axis::Y)),
-            Ok(AxisIter(&self, Axis::Z)),
-        )
+    pub fn primitives(&self) -> (Result<XIter, ()>, Result<YIter, ()>, Result<ZIter, ()>) {
+        (Ok(XIter(&self.x)), Ok(YIter(&self.y)), Ok(ZIter(&self.z)))
     }
 }
 
-enum Axis {
-    X,
-    Y,
-    Z,
-}
+pub struct XIter<'a>(&'a RefCell<f32>);
+pub struct YIter<'a>(&'a RefCell<f32>);
+pub struct ZIter<'a>(&'a RefCell<f32>);
 
-pub struct AxisIter<'a, S, DR>(&'a GlidePoint<S, DR>, Axis);
+impl<'a> Iterator for XIter<'a> {
+    type Item = Result<NormAxis, ()>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(Ok(NormAxis(self.0.borrow().clone())))
+    }
+}

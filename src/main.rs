@@ -7,7 +7,7 @@ mod logging;
 
 use bsp::hal::ccm::spi::{ClockSelect, PrescalarSelect};
 use bsp::hal::gpio::GPIO;
-use driver::glidepoint::GlidePoint;
+use driver::glidepoint::Tm035035;
 use firmware::engine::Engine;
 use teensy4_bsp as bsp;
 use teensy4_panic as _;
@@ -28,7 +28,7 @@ fn main() -> ! {
         PrescalarSelect::LPSPI_PODF_7,
     );
 
-    // Create the GlidePoint driver
+    // Create the GlidePoint TM035035 driver
     // Will want to extend this at some point to allow multiple drivers on the same SPI bus via chip
     // select pins
     let (x, y, z) = {
@@ -36,8 +36,8 @@ fn main() -> ! {
         touchpad_spi.set_mode(embedded_hal::spi::MODE_1).unwrap();
         touchpad_spi.enable_chip_select_0(pins.p10);
         let touchpad_data_ready = GPIO::new(pins.p15);
-        GlidePoint::try_new(touchpad_spi, touchpad_data_ready)
-            .unwrap_or_else(|_| panic!("Failed to create GlidePoint driver"))
+        Tm035035::try_new(touchpad_spi, touchpad_data_ready)
+            .unwrap_or_else(|_| panic!("Failed to create Tm035035 driver"))
     }
     .primitives();
 
