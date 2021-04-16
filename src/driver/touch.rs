@@ -68,7 +68,7 @@ where
         output: &'a mut [u8; LEN],
     ) -> Result<&'a [u8; LEN], GlidePointError<S, DR>> {
         // TODO When full const generics are stabilized, convert this to [0u8; LEN + 3]
-        let mut buf = [0u8; 16];
+        let buf = &mut [0u8; 16][..LEN + 3];
         buf[..2].copy_from_slice(&[Self::READ_CMD | addr, 0xfc]);
         buf[2..3 + LEN].fill(0xfc);
         self.transfer(&mut buf[..3 + LEN])?;
@@ -124,16 +124,14 @@ where
         })
     }
 
-    pub fn primitives(&self) -> (Result<XIter, ()>, Result<YIter, ()>, Result<ZIter, ()>) {
-        (Ok(XIter(&self.x)), Ok(YIter(&self.y)), Ok(ZIter(&self.z)))
+    pub fn primitives(&self) -> (TouchIter, TouchIter, TouchIter) {
+        (TouchIter(&self.x), TouchIter(&self.y), TouchIter(&self.z))
     }
 }
 
-pub struct XIter<'a>(&'a RefCell<f32>);
-pub struct YIter<'a>(&'a RefCell<f32>);
-pub struct ZIter<'a>(&'a RefCell<f32>);
+pub struct TouchIter<'a>(&'a RefCell<f32>);
 
-impl<'a> Iterator for XIter<'a> {
+impl<'a> Iterator for TouchIter<'a> {
     type Item = Result<NormAxis, ()>;
 
     fn next(&mut self) -> Option<Self::Item> {

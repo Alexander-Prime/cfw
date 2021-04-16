@@ -6,18 +6,21 @@ mod driver;
 mod logging;
 
 use bsp::hal::ccm::spi::{ClockSelect, PrescalarSelect};
-use bsp::hal::gpio::GPIO;
-use driver::glidepoint::Tm035035;
-use firmware::engine::Engine;
+use driver::imu::Lsm6ds33;
+use firmware::input::{Acceleration, Rotation};
+use firmware::update::Update;
 use teensy4_bsp as bsp;
 use teensy4_panic as _;
 
 #[cortex_m_rt::entry]
 fn main() -> ! {
+    logging::init().unwrap();
+    let c_peripherals = cortex_m::Peripherals::take().unwrap();
+    let mut systick = bsp::SysTick::new(c_peripherals.SYST);
+    systick.delay(500);
+
     let mut peripherals = bsp::Peripherals::take().unwrap();
     let pins = bsp::t41::into_pins(peripherals.iomuxc);
-
-    logging::init().unwrap();
 
     // Get 4 SPI module builders
     // Not sure why we take the last one instead of, say, the first
@@ -28,19 +31,39 @@ fn main() -> ! {
         PrescalarSelect::LPSPI_PODF_7,
     );
 
-    // Create the GlidePoint TM035035 driver
-    // Will want to extend this at some point to allow multiple drivers on the same SPI bus via chip
-    // select pins
-    let (x, y, z) = {
-        let mut touchpad_spi = spi4_builder.build(pins.p11, pins.p12, pins.p13);
-        touchpad_spi.set_mode(embedded_hal::spi::MODE_1).unwrap();
-        touchpad_spi.enable_chip_select_0(pins.p10);
-        let touchpad_data_ready = GPIO::new(pins.p15);
-        Tm035035::try_new(touchpad_spi, touchpad_data_ready)
-            .unwrap_or_else(|_| panic!("Failed to create Tm035035 driver"))
-    }
-    .primitives();
+    // Create the LSM6DS33 driver
+    let sixaxis = {
+        let mut cs = bsp::hal::gpio::GPIO::new(pins.p10).output();
+        cs.set();
+        let mut sixaxis_spi = spi4_builder.build(pins.p11, pins.p12, pins.p13);
+        sixaxis_spi.set_mode(embedded_hal::spi::MODE_3).unwrap();
+        Lsm6ds33::try_new(sixaxis_spi, cs)
+            .unwrap_or_else(|_| panic!("Failed to create LSM6DS33 driver"))
+    };
 
-    // Start the engine
-    Engine::new().with_watcher(|| log::info!("loop")).start();
+    let (x, y, z, pitch, roll, yaw) = sixaxis.primitives();
+
+    let acceleration = Acceleration { x, y, z };
+    let rotation = Rotation { pitch, roll, yaw };
+
+    sixaxis.update();
+
+    for ((x, y, z), (pitch, roll, yaw)) in Iterator::zip(acceleration, rotation) {
+        if (x, y, z, pitch, roll, yaw) != (0.0, 0.0, 0.0, 0.0, 0.0, 0.0) {
+            log::info!(
+                "A({:.2}, {:.2}, {:.2}) R({:.2}, {:.2}, {:.2})",
+                x,
+                y,
+                z,
+                pitch,
+                roll,
+                yaw
+            );
+        }
+        sixaxis.update();
+    }
+
+    log::info!("Iterator ended, halting");
+
+    loop {}
 }

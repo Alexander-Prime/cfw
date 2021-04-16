@@ -12,7 +12,8 @@ OUTPUT_PATH="$OUTPUT_DIR/$NAME.hex"
 REMOTE_DIR="/tmp/teensy-load"
 REMOTE_PATH="$REMOTE_DIR/$NAME.hex"
 
-TTY_PATH="/dev/ttyACM0"
+TTY_DIR="/dev"
+TTY_PATH="$TTY_DIR/ttyACM0"
 
 cargo objcopy --release -- -O ihex "$OUTPUT_PATH"
 ssh "$USER@$HOST" mkdir -p "$REMOTE_DIR" &&
@@ -20,5 +21,4 @@ scp "$OUTPUT_PATH" "$USER@$HOST:$REMOTE_PATH" &&
 
 echo -e "\nRunning"
 ssh "$USER@$HOST" teensy_loader_cli --mcu="$MCU" -w "$REMOTE_PATH" &&
-sleep 2s &&
-ssh "$USER@$HOST" cat "$TTY_PATH"
+ssh "$USER@$HOST" "inotifywait -qqe create \"$TTY_DIR\" && cat \"$TTY_PATH\""

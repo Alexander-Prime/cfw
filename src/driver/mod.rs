@@ -1,1 +1,2 @@
-pub mod glidepoint;
+pub mod imu;
+pub mod touch;

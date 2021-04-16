@@ -8,16 +8,16 @@ edition = "2018"
 members = ['./lib/firmware']
 
 [dependencies]
-cortex-m = "0.6.2"
+cortex-m = "0.7.2"
 cortex-m-rt = "0.6.13"
-embedded-hal = "0.2.3"
-log = "0.4.11"
+embedded-hal = "0.2.4"
+log = "0.4.14"
 teensy4-panic = "0.1.0"
 
 firmware = { path = "./lib/firmware"}
 
 [dependencies.teensy4-bsp]
-version = "0.2"
+version = "0.2.0"
 features = ["rt"]
 
 # Don't optimize build dependencies, like proc macros.
