@@ -1,7 +1,7 @@
 use super::{Register, RegisterSetting};
 
 /// Linear acceleration sensor control register 1 (r/w).
-pub struct Ctrl1Xl(OdrXl, FsXl, BwXl);
+pub struct Ctrl1Xl(pub OdrXl, pub FsXl, pub BwXl);
 
 impl Register for Ctrl1Xl {
     fn address(&self) -> u8 {
