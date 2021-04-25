@@ -4,6 +4,8 @@ use embedded_hal::blocking::spi::Transfer;
 use embedded_hal::digital::v2::OutputPin;
 use firmware::update::Update;
 
+mod config;
+
 type SixOf<T> = (T, T, T, T, T, T);
 
 pub enum ImuError<S: Transfer<u8>> {
