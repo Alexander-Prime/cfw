@@ -51,17 +51,17 @@ impl RegisterSetting for XlBwScalOdr {
 
 pub enum SleepG {
     /// Gyroscope sleep mode enabled
-    GyroEnable,
+    GyroWake,
 
     /// Gyroscope sleep mode disabled
-    GyroDisable,
+    GyroSleep,
 }
 
 impl RegisterSetting for SleepG {
     fn value(&self) -> u8 {
         match self {
-            Self::GyroEnable => 0b_0000_0000,
-            Self::GyroDisable => 0b_0100_0000,
+            Self::GyroWake => 0b_0000_0000,
+            Self::GyroSleep => 0b_0100_0000,
         }
     }
     fn mask(&self) -> u8 {

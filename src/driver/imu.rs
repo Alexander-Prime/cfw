@@ -56,7 +56,7 @@ impl Lsm6ds33<!, !> {
         imu.configure(Ctrl1Xl(OdrXl::DataRate12_5Hz, FsXl::TwoG, BwXl::Bw50Hz))?;
         imu.configure(Ctrl4C(
             XlBwScalOdr::ByBwXl,
-            SleepG::GyroEnable,
+            SleepG::GyroWake,
             Int2OnInt1::Int1AndInt2,
             FifoTempEn::TempDataDisable,
             DrdyMask::DrdyMaskDisable,
