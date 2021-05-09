@@ -1,3 +1,8 @@
+use embedded_hal::blocking::spi::Transfer;
+use embedded_hal::digital::v2::OutputPin;
+
+use crate::driver::imu::Lsm6ds33;
+
 pub struct Frame {
     pub left_quad_n: bool,
     pub left_quad_e: bool,
@@ -82,66 +87,84 @@ impl core::fmt::Display for Frame {
             "\nGrips: left {}, right {}",
             self.left_grip, self.right_grip,
         ))?;
+        formatter.write_fmt(format_args!(
+            "\nAccel: X {}, Y {}, Z {}",
+            self.accel_x, self.accel_y, self.accel_z
+        ))?;
+        formatter.write_fmt(format_args!(
+            "\nGyro: X {}, Y {}, Z {}",
+            self.gyro_x, self.gyro_y, self.gyro_z
+        ))?;
+        formatter.write_fmt(format_args!(
+            "\nMag: X {}, Y {}, Z {}",
+            self.mag_x, self.mag_y, self.mag_z
+        ))?;
         Ok(())
     }
 }
 
-pub struct Controller;
+pub struct Controller<S, C>(Lsm6ds33<S, C>);
 
-impl Controller {
-    pub fn new() -> Self {
-        Controller
+impl<S, C> Controller<S, C> {
+    pub fn new(imu: Lsm6ds33<S, C>) -> Self {
+        Controller(imu)
     }
 }
 
-impl Iterator for Controller {
+impl<S: Transfer<u8>, C: OutputPin> Iterator for Controller<S, C> {
     type Item = Frame;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(Frame {
-            left_quad_n: false,
-            left_quad_e: false,
-            left_quad_s: false,
-            left_quad_w: false,
+        let imu_item = self.0.next();
+        let imu_result = imu_item?;
+        if let Ok(((accel_x, accel_y, accel_z), (gyro_x, gyro_y, gyro_z))) = imu_result {
+            Some(Frame {
+                left_quad_n: false,
+                left_quad_e: false,
+                left_quad_s: false,
+                left_quad_w: false,
 
-            right_quad_n: false,
-            right_quad_e: false,
-            right_quad_s: false,
-            right_quad_w: false,
+                right_quad_n: false,
+                right_quad_e: false,
+                right_quad_s: false,
+                right_quad_w: false,
 
-            left_pad_x: 0.0,
-            left_pad_y: 0.0,
-            left_pad_click: false,
+                left_pad_x: 0.0,
+                left_pad_y: 0.0,
+                left_pad_click: false,
 
-            right_pad_x: 0.0,
-            right_pad_y: 0.0,
-            right_pad_click: false,
+                right_pad_x: 0.0,
+                right_pad_y: 0.0,
+                right_pad_click: false,
 
-            home: false,
+                home: false,
 
-            select: false,
-            start: false,
+                select: false,
+                start: false,
 
-            left_bumper: false,
-            right_bumper: false,
+                left_bumper: false,
+                right_bumper: false,
 
-            left_trigger: 0.0,
-            right_trigger: 0.0,
+                left_trigger: 0.0,
+                right_trigger: 0.0,
 
-            left_grip: false,
-            right_grip: false,
+                left_grip: false,
+                right_grip: false,
 
-            accel_x: 0.0,
-            accel_y: 0.0,
-            accel_z: 0.0,
+                accel_x,
+                accel_y,
+                accel_z,
 
-            gyro_x: 0.0,
-            gyro_y: 0.0,
-            gyro_z: 0.0,
+                gyro_x,
+                gyro_y,
+                gyro_z,
 
-            mag_x: 0.0,
-            mag_y: 0.0,
-            mag_z: 0.0,
-        })
+                mag_x: 0.0,
+                mag_y: 0.0,
+                mag_z: 0.0,
+            })
+        } else {
+            Default::default()
+        }
     }
 }

@@ -1,4 +1,5 @@
 pub mod ctrl1xl;
+pub mod ctrl2g;
 pub mod ctrl4c;
 
 pub trait Register {

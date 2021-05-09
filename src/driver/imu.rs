@@ -1,16 +1,14 @@
 use config::Register;
-use core::cell::RefCell;
 use core::convert::TryInto;
 use embedded_hal::blocking::spi::Transfer;
 use embedded_hal::digital::v2::OutputPin;
-use firmware::update::Update;
 
 use config::ctrl1xl::*;
 use config::ctrl4c::*;
 
-mod config;
+use self::config::ctrl2g::{Ctrl2G, Fs125, FsG, OdrG};
 
-type SixOf<T> = (T, T, T, T, T, T);
+mod config;
 
 pub enum ImuError<S: Transfer<u8>> {
     WrongIdentity(u8),
@@ -19,16 +17,8 @@ pub enum ImuError<S: Transfer<u8>> {
 }
 
 pub struct Lsm6ds33<S, C> {
-    spi: RefCell<S>,
-    cs: RefCell<C>,
-
-    x: RefCell<f32>,
-    y: RefCell<f32>,
-    z: RefCell<f32>,
-
-    pitch: RefCell<f32>,
-    roll: RefCell<f32>,
-    yaw: RefCell<f32>,
+    spi: S,
+    cs: C,
 }
 
 impl Lsm6ds33<!, !> {
@@ -36,24 +26,14 @@ impl Lsm6ds33<!, !> {
         spi: S,
         cs: C,
     ) -> Result<Lsm6ds33<S, C>, ImuError<S>> {
-        let mut imu = Lsm6ds33 {
-            spi: RefCell::new(spi),
-            cs: RefCell::new(cs),
-
-            x: Default::default(),
-            y: Default::default(),
-            z: Default::default(),
-
-            pitch: Default::default(),
-            roll: Default::default(),
-            yaw: Default::default(),
-        };
+        let mut imu = Lsm6ds33 { spi, cs };
 
         let mut buf = [0x00; 1];
         imu.read_bytes(0x0f, &mut buf)?;
 
         // Initialize configuration registers
         imu.configure(Ctrl1Xl(OdrXl::DataRate12_5Hz, FsXl::TwoG, BwXl::Bw50Hz))?;
+        imu.configure(Ctrl2G(OdrG::DataRate12_5Hz, FsG::Dps250, Fs125::DpsByFsG))?;
         imu.configure(Ctrl4C(
             XlBwScalOdr::ByBwXl,
             SleepG::GyroWake,
@@ -72,25 +52,19 @@ impl Lsm6ds33<!, !> {
 }
 
 impl<S: Transfer<u8>, C: OutputPin> Lsm6ds33<S, C> {
-    fn transfer<'a>(&self, buf: &'a mut [u8]) -> Result<&'a [u8], ImuError<S>> {
+    fn transfer<'a>(&mut self, buf: &'a mut [u8]) -> Result<&'a [u8], ImuError<S>> {
         self.cs
-            .borrow_mut()
             .set_low()
             .map_err(|_| ImuError::<S>::ChipSelectFailed)?;
-        let result = self
-            .spi
-            .borrow_mut()
-            .transfer(buf)
-            .map_err(ImuError::TransferFailed);
+        let result = self.spi.transfer(buf).map_err(ImuError::TransferFailed);
         self.cs
-            .borrow_mut()
             .set_high()
             .map_err(|_| ImuError::<S>::ChipSelectFailed)?;
         result
     }
 
     fn read_bytes<'a, const LEN: usize>(
-        &self,
+        &mut self,
         addr: u8,
         output: &'a mut [u8; LEN],
     ) -> Result<&'a [u8; LEN], ImuError<S>> {
@@ -119,45 +93,34 @@ impl<S: Transfer<u8>, C: OutputPin> Lsm6ds33<S, C> {
         self.write_bytes(register.address(), &[register.value()])?;
         Ok(())
     }
-}
 
-impl<S, C> Lsm6ds33<S, C> {
-    pub fn primitives<'a>(&'a self) -> SixOf<ImuIter<'a>> {
-        (
-            ImuIter(&self.x),
-            ImuIter(&self.y),
-            ImuIter(&self.z),
-            ImuIter(&self.pitch),
-            ImuIter(&self.roll),
-            ImuIter(&self.yaw),
-        )
-    }
-}
-
-pub struct ImuIter<'a>(&'a RefCell<f32>);
-impl<'a> Iterator for ImuIter<'a> {
-    type Item = f32;
-    fn next(&mut self) -> Option<Self::Item> {
-        Some(self.0.borrow().clone())
-    }
-}
-
-impl<S: Transfer<u8>, C: OutputPin> Update for Lsm6ds33<S, C> {
-    fn update(&self) {
+    fn read_motion(&mut self) -> MotionResult<S> {
         let mut buf = [0u8; 12];
-        let buf = self.read_bytes(0x22, &mut buf).unwrap_or_else(|_| panic!());
+        let buf = self.read_bytes(0x22, &mut buf)?;
 
-        self.pitch
-            .replace(i16::from_le_bytes(buf[0..2].try_into().unwrap()).into());
-        self.roll
-            .replace(i16::from_le_bytes(buf[2..4].try_into().unwrap()).into());
-        self.yaw
-            .replace(i16::from_le_bytes(buf[4..6].try_into().unwrap()).into());
-        self.x
-            .replace(i16::from_le_bytes(buf[6..8].try_into().unwrap()).into());
-        self.y
-            .replace(i16::from_le_bytes(buf[8..10].try_into().unwrap()).into());
-        self.z
-            .replace(i16::from_le_bytes(buf[10..12].try_into().unwrap()).into());
+        let gyro = (
+            // Gyroscope pitch, roll, yaw
+            i16::from_le_bytes(buf[0..2].try_into().unwrap()).into(),
+            i16::from_le_bytes(buf[2..4].try_into().unwrap()).into(),
+            i16::from_le_bytes(buf[4..6].try_into().unwrap()).into(),
+        );
+
+        let accel = (
+            // Accelerometer X, Y, Z
+            i16::from_le_bytes(buf[6..8].try_into().unwrap()).into(),
+            i16::from_le_bytes(buf[8..10].try_into().unwrap()).into(),
+            i16::from_le_bytes(buf[10..12].try_into().unwrap()).into(),
+        );
+
+        Ok((accel, gyro))
+    }
+}
+
+type MotionResult<S> = Result<((f32, f32, f32), (f32, f32, f32)), ImuError<S>>;
+
+impl<S: Transfer<u8>, C: OutputPin> Iterator for Lsm6ds33<S, C> {
+    type Item = MotionResult<S>;
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(self.read_motion())
     }
 }
