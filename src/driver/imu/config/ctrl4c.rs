@@ -50,10 +50,10 @@ impl RegisterSetting for XlBwScalOdr {
 }
 
 pub enum SleepG {
-    /// Gyroscope sleep mode enabled
+    /// Gyroscope sleep mode disabled
     GyroWake,
 
-    /// Gyroscope sleep mode disabled
+    /// Gyroscope sleep mode enabled
     GyroSleep,
 }
 
