@@ -8,10 +8,9 @@ mod logging;
 
 use bsp::hal::ccm::spi::{ClockSelect, PrescalarSelect};
 use controller::Controller;
+use lsm6ds33::Lsm6ds33;
 use teensy4_bsp as bsp;
 use teensy4_panic as _;
-
-use crate::driver::imu::Lsm6ds33;
 
 #[cortex_m_rt::entry]
 fn main() -> ! {

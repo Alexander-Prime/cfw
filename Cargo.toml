@@ -5,7 +5,7 @@ authors = ["Alex Peters <alexander.n.peters@gmail.com>"]
 edition = "2018"
 
 [workspace]
-members = ['./lib/firmware']
+members = ['./lib/lsm6ds33', './lib/tm035035']
 
 [dependencies]
 cortex-m = "0.7.2"
@@ -14,7 +14,8 @@ embedded-hal = "0.2.4"
 log = "0.4.14"
 teensy4-panic = "0.1.0"
 
-firmware = { path = "./lib/firmware"}
+lsm6ds33 = { path = "./lib/lsm6ds33"}
+tm035035 = { path = "./lib/tm035035"}
 
 [dependencies.teensy4-bsp]
 version = "0.2.0"

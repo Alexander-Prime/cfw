@@ -1,7 +1,7 @@
 use embedded_hal::blocking::spi::Transfer;
 use embedded_hal::digital::v2::OutputPin;
 
-use crate::driver::imu::Lsm6ds33;
+use lsm6ds33::Lsm6ds33;
 
 pub struct Frame {
     pub left_quad_n: bool,

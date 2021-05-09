@@ -1,14 +1,16 @@
-use config::Register;
+#![no_std]
+#![feature(never_type)]
+
 use core::convert::TryInto;
 use embedded_hal::blocking::spi::Transfer;
 use embedded_hal::digital::v2::OutputPin;
 
-use config::ctrl1xl::*;
-use config::ctrl4c::*;
+use self::config::ctrl1xl::*;
+use self::config::ctrl2g::*;
+use self::config::ctrl4c::*;
+use self::config::Register;
 
-use self::config::ctrl2g::{Ctrl2G, Fs125, FsG, OdrG};
-
-mod config;
+pub mod config;
 
 pub enum ImuError<S: Transfer<u8>> {
     WrongIdentity(u8),
