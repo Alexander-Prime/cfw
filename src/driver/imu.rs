@@ -1,8 +1,14 @@
+use config::Register;
 use core::cell::RefCell;
 use core::convert::TryInto;
 use embedded_hal::blocking::spi::Transfer;
 use embedded_hal::digital::v2::OutputPin;
 use firmware::update::Update;
+
+use config::ctrl1xl::*;
+use config::ctrl4c::*;
+
+mod config;
 
 type SixOf<T> = (T, T, T, T, T, T);
 
@@ -47,8 +53,16 @@ impl Lsm6ds33<!, !> {
         imu.read_bytes(0x0f, &mut buf)?;
 
         // Initialize configuration registers
-        imu.write_bytes(0x10, &[0b_0001_0011])?; // CTRL1_XL
-        imu.write_bytes(0x13, &[0b_1000_0100])?; // CTRL4_C
+        imu.configure(Ctrl1Xl(OdrXl::DataRate12_5Hz, FsXl::TwoG, BwXl::Bw50Hz))?;
+        imu.configure(Ctrl4C(
+            XlBwScalOdr::ByBwXl,
+            SleepG::GyroWake,
+            Int2OnInt1::Int1AndInt2,
+            FifoTempEn::TempDataDisable,
+            DrdyMask::DrdyMaskDisable,
+            I2cDisable::I2cDisable,
+            StopOnFth::FifoDepthUnlimited,
+        ))?;
 
         match buf {
             [0x69] => Ok(imu),
@@ -98,6 +112,11 @@ impl<S: Transfer<u8>, C: OutputPin> Lsm6ds33<S, C> {
         buf[0] = addr & 0b_0111_1111;
         buf[1..].copy_from_slice(input);
         self.transfer(buf)?;
+        Ok(())
+    }
+
+    pub fn configure<R: Register>(&mut self, register: R) -> Result<(), ImuError<S>> {
+        self.write_bytes(register.address(), &[register.value()])?;
         Ok(())
     }
 }
