@@ -50,7 +50,7 @@ where
     fn transfer<'a>(&mut self, buf: &'a mut [u8]) -> Result<&'a [u8], GlidePointError<S, DR>> {
         self.spi
             .transfer(buf)
-            .map_err(|e| GlidePointError::TransferError(e))
+            .map_err(GlidePointError::TransferError)
     }
 
     fn read_bytes<'a, const LEN: usize>(
@@ -80,7 +80,7 @@ where
     fn data_ready(&self) -> Result<bool, GlidePointError<S, DR>> {
         self.data_ready
             .is_high()
-            .map_err(|e| GlidePointError::DataReadyError(e))
+            .map_err(GlidePointError::DataReadyError)
     }
 
     fn reset(&mut self) -> Result<(), GlidePointError<S, DR>> {

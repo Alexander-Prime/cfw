@@ -3,7 +3,6 @@
 #![feature(never_type)]
 
 mod controller;
-mod driver;
 mod logging;
 
 use bsp::hal::ccm::spi::{ClockSelect, PrescalarSelect};
@@ -50,5 +49,5 @@ fn main() -> ! {
 
     log::info!("Iterator ended, halting");
 
-    loop {}
+    panic!()
 }
