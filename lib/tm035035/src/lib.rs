@@ -1,15 +1,12 @@
-use core::cell::RefCell;
+#![no_std]
+#![feature(never_type)]
 
 use embedded_hal::blocking::spi::Transfer;
 use embedded_hal::digital::v2::InputPin;
-use firmware::primitive::NormAxis;
 
 pub struct Tm035035<S, DR> {
     spi: S,
     data_ready: DR,
-    x: RefCell<f32>,
-    y: RefCell<f32>,
-    z: RefCell<f32>,
 }
 
 pub enum GlidePointError<S, DR>
@@ -27,13 +24,7 @@ impl Tm035035<!, !> {
         S: Transfer<u8>,
         DR: InputPin,
     {
-        let mut glide_point = Tm035035 {
-            spi,
-            data_ready,
-            x: RefCell::new(0.0),
-            y: RefCell::new(0.0),
-            z: RefCell::new(0.0),
-        };
+        let mut glide_point = Tm035035 { spi, data_ready };
 
         glide_point.reset()?;
 
@@ -59,7 +50,7 @@ where
     fn transfer<'a>(&mut self, buf: &'a mut [u8]) -> Result<&'a [u8], GlidePointError<S, DR>> {
         self.spi
             .transfer(buf)
-            .map_err(|e| GlidePointError::TransferError(e))
+            .map_err(GlidePointError::TransferError)
     }
 
     fn read_bytes<'a, const LEN: usize>(
@@ -89,7 +80,7 @@ where
     fn data_ready(&self) -> Result<bool, GlidePointError<S, DR>> {
         self.data_ready
             .is_high()
-            .map_err(|e| GlidePointError::DataReadyError(e))
+            .map_err(GlidePointError::DataReadyError)
     }
 
     fn reset(&mut self) -> Result<(), GlidePointError<S, DR>> {
@@ -99,7 +90,7 @@ where
         Ok(())
     }
 
-    fn read_touch(&mut self) -> Result<Option<(f32, f32, f32)>, GlidePointError<S, DR>> {
+    fn read_touch(&mut self) -> Result<Option<Touch>, GlidePointError<S, DR>> {
         Ok(if self.data_ready()? {
             let mut buf = [0u8; 4];
             self.read_bytes(0x14, &mut buf)?;
@@ -107,7 +98,7 @@ where
 
             if buf == [0, 0, 0, 0] {
                 // "Z idle" packet
-                None
+                Some(Touch::NotTouched)
             } else {
                 let [x_low, y_low, xy_high, pressure] = buf;
                 let x = x_low as u16 | (((xy_high & 0x0f) as u16) << 8);
@@ -117,24 +108,23 @@ where
                 let y = (y as f32 / Self::MAX_Y) * 2.0 - 1.0;
                 let z = pressure as f32 / 255.0;
 
-                Some((x, y, z))
+                Some(Touch::Touched(x, y, z))
             }
         } else {
             None
         })
     }
-
-    pub fn primitives(&self) -> (TouchIter, TouchIter, TouchIter) {
-        (TouchIter(&self.x), TouchIter(&self.y), TouchIter(&self.z))
-    }
 }
 
-pub struct TouchIter<'a>(&'a RefCell<f32>);
+pub enum Touch {
+    Touched(f32, f32, f32),
+    NotTouched,
+}
 
-impl<'a> Iterator for TouchIter<'a> {
-    type Item = Result<NormAxis, ()>;
+impl<S: Transfer<u8>, DR: InputPin> Iterator for Tm035035<S, DR> {
+    type Item = Result<Touch, GlidePointError<S, DR>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(Ok(NormAxis(self.0.borrow().clone())))
+        self.read_touch().transpose()
     }
 }

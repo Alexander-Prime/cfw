@@ -1,0 +1,9 @@
+[package]
+name = "tm035035"
+version = "0.1.0"
+authors = ["Alex Peters <alexander.n.peters@gmail.com>"]
+edition = "2018"
+
+[dependencies.embedded-hal]
+version = "0.2.4"
+features = ["unproven"]
